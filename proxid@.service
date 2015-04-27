@@ -1,0 +1,11 @@
+[Unit]
+Description=Simple SSH tunnel manager for %I
+After=network.target
+
+[Service]
+User=%i
+ExecStart=/usr/bin/proxid
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
