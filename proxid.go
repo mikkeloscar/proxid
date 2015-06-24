@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os/exec"
 	"os/user"
 	"path"
 
@@ -15,68 +14,10 @@ import (
 )
 
 var hostMap map[string]*sshconfig.SSHHost
-var manager *tunnelManager
 
-type cmd struct {
-	Cmd  string
-	Host *sshconfig.SSHHost
-}
-
-type tunnelManager struct {
-	process *exec.Cmd
-	cmd     chan *cmd
-	resp    chan bool
-}
-
-func (t *tunnelManager) run() {
-	for {
-		cmd := <-t.cmd
-		switch cmd.Cmd {
-		case "start":
-			fmt.Printf("starting: %s\n", cmd.Host.HostName)
-			err := t.start(cmd.Host)
-			if err != nil {
-				t.resp <- false
-			} else {
-				t.resp <- true
-			}
-		case "stop":
-			err := t.stop()
-			if err != nil {
-				t.resp <- false
-			} else {
-				t.resp <- true
-			}
-		}
-	}
-}
-
-func (t *tunnelManager) start(host *sshconfig.SSHHost) error {
-	// stop other process if running
-	t.stop()
-
-	t.process = exec.Command("ssh", "-D", "1080", "-N",
-		fmt.Sprintf("%s@%s", host.User, host.HostName),
-		"-p", fmt.Sprintf("%d", host.Port))
-
-	return t.process.Start()
-}
-
-func (t *tunnelManager) stop() error {
-	if t.process != nil {
-		return t.process.Process.Kill()
-	}
-	return nil
-}
-
-func (t *tunnelManager) Start(host *sshconfig.SSHHost) bool {
-	t.cmd <- &cmd{"start", host}
-	return <-t.resp
-}
-
-func (t *tunnelManager) Stop() bool {
-	t.cmd <- &cmd{"stop", nil}
-	return <-t.resp
+var manager = TunnelManager{
+	cmd:  make(chan *cmd),
+	resp: make(chan bool),
 }
 
 func main() {
@@ -86,16 +27,11 @@ func main() {
 		panic(err)
 	}
 
-	manager = &tunnelManager{
-		cmd:  make(chan *cmd),
-		resp: make(chan bool),
-	}
-
-	// start tunnel Manager
-	go manager.run()
-
-	port := flag.Int("p", 4444, "server port")
+	port := flag.Int("p", 4444, "HTTP server port")
+	tunnelPort := flag.Int("tp", 5555, "SSH tunnel port")
 	flag.Parse()
+
+	go manager.run(*tunnelPort)
 
 	webServer(*port)
 }
@@ -130,25 +66,46 @@ func getHosts() (map[string]*sshconfig.SSHHost, error) {
 func startHandler(w http.ResponseWriter, r *http.Request) {
 	hostName := r.FormValue("host")
 
+	status := map[string]string{
+		"status": "ok",
+	}
+
 	if host, ok := hostMap[hostName]; ok {
-		// send start command with host to tunnelManager
-		if manager.Start(host) {
-			fmt.Fprintf(w, "ok\n")
-		} else {
-			fmt.Fprintf(w, "error\n")
+		// send start command with host to tunnel spawner
+		if !manager.Start(host) {
+			status["status"] = "error"
 		}
+		writeJson(w, status)
 	} else {
-		fmt.Fprintf(w, "error\n")
+		status["status"] = "error"
+		status["msg"] = fmt.Sprintf("invalid host '%s'", hostName)
+		writeJson(w, status)
 	}
 }
 
 func stopHandler(w http.ResponseWriter, r *http.Request) {
-	// stop current active tunnnel (if any)
-	if manager.Stop() {
-		fmt.Fprintf(w, "ok\n")
-	} else {
-		fmt.Fprintf(w, "error\n")
+	// stop current tunnel (if any)
+	status := map[string]string{
+		"status": "ok",
 	}
+
+	if !manager.Stop() {
+		status["status"] = "error"
+	}
+	writeJson(w, status)
+}
+
+func writeJson(w http.ResponseWriter, data interface{}) {
+	jData, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Fatalln(err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	jData = append(jData, '\n')
+	w.Write(jData)
 }
 
 func infoHandler(w http.ResponseWriter, r *http.Request) {
@@ -157,15 +114,7 @@ func infoHandler(w http.ResponseWriter, r *http.Request) {
 		hosts = append(hosts, host)
 	}
 
-	jHosts, err := json.Marshal(hosts)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Fatalln(err.Error())
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(jHosts)
+	writeJson(w, hosts)
 }
 
 func webServer(port int) {
