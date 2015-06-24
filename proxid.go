@@ -28,7 +28,7 @@ func main() {
 	}
 
 	port := flag.Int("p", 4444, "HTTP server port")
-	tunnelPort := flag.Int("tp", 5555, "SSH tunnel port")
+	tunnelPort := flag.Int("tp", 1080, "SSH tunnel port")
 	flag.Parse()
 
 	go manager.run(*tunnelPort)
