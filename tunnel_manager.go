@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"sync"
@@ -52,7 +53,7 @@ func (t *TunnelManager) run(port int) {
 		if cmd.start {
 			err = t.start(cmd.host)
 			if err != nil {
-				// TODO log error?
+				log.Println(err)
 				t.resp <- false
 			} else {
 				t.resp <- true
@@ -60,7 +61,7 @@ func (t *TunnelManager) run(port int) {
 		} else {
 			err = t.stop()
 			if err != nil {
-				// TODO log error?
+				log.Println(err)
 				t.resp <- false
 			} else {
 				t.resp <- true
