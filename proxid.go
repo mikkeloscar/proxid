@@ -95,24 +95,13 @@ func stopHandler(w http.ResponseWriter, r *http.Request) {
 	writeJson(w, status)
 }
 
-func writeJson(w http.ResponseWriter, data interface{}) {
-	jData, err := json.Marshal(data)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Fatalln(err.Error())
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	jData = append(jData, '\n')
-	w.Write(jData)
-}
-
 func infoHandler(w http.ResponseWriter, r *http.Request) {
 	hosts := make([]*sshconfig.SSHHost, 0, len(hostMap))
 	for _, host := range hostMap {
 		hosts = append(hosts, host)
 	}
+
+	// TODO sort by Host[0]
 
 	writeJson(w, hosts)
 }
@@ -130,4 +119,19 @@ func webServer(port int) {
 	if err != nil {
 		panic("ListenAndServe: " + err.Error())
 	}
+}
+
+func writeJson(w http.ResponseWriter, data interface{}) {
+	jData, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Fatalln(err.Error())
+		return
+	}
+
+	// set CORS
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+	jData = append(jData, '\n')
+	w.Write(jData)
 }
