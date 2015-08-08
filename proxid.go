@@ -98,7 +98,9 @@ func stopHandler(w http.ResponseWriter, r *http.Request) {
 func infoHandler(w http.ResponseWriter, r *http.Request) {
 	hosts := make([]*sshconfig.SSHHost, 0, len(hostMap))
 	for _, host := range hostMap {
-		hosts = append(hosts, host)
+		if host.ProxyCommand == "" {
+			hosts = append(hosts, host)
+		}
 	}
 
 	// TODO sort by Host[0]
