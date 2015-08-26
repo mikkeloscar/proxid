@@ -80,8 +80,7 @@ func (t *TunnelManager) start(host *sshconfig.SSHHost) error {
 	if t.curr != host.Host[0] || t.proc == nil {
 		sshCmd := exec.Command("/usr/bin/ssh",
 			"-D", fmt.Sprintf("%d", t.port),
-			"-N", fmt.Sprintf("%s@%s", host.User, host.HostName),
-			"-p", fmt.Sprintf("%d", host.Port))
+			"-N", host.Host[0])
 		err := sshCmd.Start()
 		if err != nil {
 			return err
