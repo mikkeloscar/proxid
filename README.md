@@ -1,5 +1,7 @@
 # proxid
 
+[![Travis Build Status](https://travis-ci.org/mikkeloscar/proxid.svg?branch=master)](https://travis-ci.org/mikkeloscar/proxid)
+
 Simple daemon for starting and stopping ssh tunnels. It is meant to connect
 with a chromium extension for easy proxy enabling/disabling.
 
