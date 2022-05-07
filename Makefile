@@ -2,8 +2,8 @@ GO=go
 
 all: proxid
 
-proxid: clean
-	$(GO) build
+proxid:
+	CGO_ENABLED=0 $(GO) build
 
 install:
 	# bin
